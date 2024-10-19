@@ -30,9 +30,69 @@ class SmartDevice(models.Model):
 
 
 class CarCharger(SmartDevice):
+    car_battery_capacity = models.IntegerField()
+    car_battery_charge = models.IntegerField()
     is_connected_to_car = models.BooleanField(default=False)
+    is_charging = models.BooleanField(default=False)
+    max_power_output = models.integer()
     power_consumption = models.IntegerField(default=0)
     total_power_consumption = models.IntegerField(default=0)
+    
+
+    def connect_to_car(self):
+        if not self.is_connected_to_car:
+            self.is_connected_to_car = True
+            self.save()
+            return "Car is now connected."
+        return "Car is already connected."
+    
+    def disconnect_from_car(self):
+        if self.is_connected_to_car:
+            self.is_connected_to_car = False
+            self.save()
+            return "Car is now disconnected."
+        return "Car is already disconnected."
+
+    def start_charging(self, power_rate):
+
+        if not self.is_connected_to_car:
+            raise ValueError("Car is not connected. Please connect the car to start charging.")
+        if power_rate <= self.max_power_output:
+            self.power_consumption = power_rate
+            self.is_charging = True
+            self.save()
+            return "Charging started at {} kW.".format(power_rate)
+    
+    def stop_charging(self, charging_minutes):
+    
+        if self.is_connected_to_car and self.power_consumption > 0 and self.is_charging:
+            self.is_charging = False
+            total_consumed = self.power_consumption * charging_minutes
+            self.total_power_consumption += total_consumed
+            self.power_consumption = 0
+            self.save()
+            return "Charging stopped. Total power consumed: {} kWh.".format(total_consumed)
+        return "No active charging session to stop."
+    
+    def reset_power_consumption(self):
+        
+        self.total_power_consumption = 0
+        self.save()
+        return "Total power consumption has been reset."
+    
+    def calculate_estimated_charging_time_in_minutes(self):
+        if not self.is_connected_to_car:
+            return "Car is not connected."
+
+        if not self.is_charging or self.power_consumption <= 0:
+            return "No active charging session."
+        
+        remaining_capacity = self.car_battery_capacity - self.car_battery_charge
+        if remaining_capacity <= 0:
+            return "Battery is already fully charged."
+        
+        charging_time_minutes_to_full = (remaining_capacity / (self.power_consumption)) * 60
+        return "Estimated charging time: {:.2f} minutes.".format(charging_time_minutes_to_full)
 
 
 class SmartBulb(SmartDevice):
